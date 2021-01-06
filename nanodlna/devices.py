@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # encoding: UTF-8
 
-import re
 import socket
 import sys
-import xml.etree.ElementTree as ET
+
+from lxml import etree
 
 if sys.version_info.major == 3:
     import urllib.request as urllibreq
@@ -29,8 +29,14 @@ UPNP_DEFAULT_SERVICE_TYPE = "urn:schemas-upnp-org:service:AVTransport:1"
 def register_device(location_url):
 
     xml = urllibreq.urlopen(location_url).read().decode("UTF-8")
-    xml = re.sub(" xmlns=\"[^\"]+\"", "", xml, count=1)
-    info = ET.fromstring(xml)
+    info = etree.fromstring(xml)
+
+    # https://stackoverflow.com/questions/18159221/remove-namespace-and-prefix-from-xml-in-python-using-lxml/51972010#51972010
+    # Remove namespace prefixes
+    for elem in info.getiterator():
+        elem.tag = etree.QName(elem).localname
+    # Remove unused namespace declarations
+    etree.cleanup_namespaces(info)
 
     location = urllibparse.urlparse(location_url)
     hostname = location.hostname
@@ -44,14 +50,13 @@ def register_device(location_url):
     ).text
     action_url = urllibparse.urljoin(location_url, path)
 
-    device = {
+    return {
         "location": location_url,
         "hostname": hostname,
         "friendly_name": friendly_name,
         "action_url": action_url,
         "st": UPNP_DEFAULT_SERVICE_TYPE
     }
-    return device
 
 
 def get_devices(timeout=3.0):
